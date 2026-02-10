@@ -176,7 +176,9 @@ export async function GET(request: NextRequest) {
 
   // Регистрируем/авторизуем пользователя в backend
   try {
-    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/auth/yandex-oauth`, {
+    const backendBaseUrl =
+      process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+    const backendResponse = await fetch(`${backendBaseUrl}/api/auth/yandex-oauth`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
