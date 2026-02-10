@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
-import { ShoppingCart, DollarSign, Truck, Brain, Shield, Zap, Mail } from "lucide-react"
+import { ShoppingCart, DollarSign, Truck, Brain, Shield, Zap, Mail, Github } from "lucide-react"
 
 // Плавающие иконки для фона
 const floatingIcons = [
@@ -342,11 +342,39 @@ export default function LoginPage() {
           {/* Форма */}
           <Card className="bg-white/5 backdrop-blur-xl border-white/10 shadow-2xl">
             <CardContent className="p-8">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              {/* GitHub OAuth кнопка */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
                 <Button
-                  type="button"
-                  onClick={handleYandexLogin}
-                  className="w-full h-12 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold shadow-lg shadow-red-500/25 transition-all duration-300"
+                  onClick={() => {
+                    window.location.href = "/api/github/login"
+                  }}
+                  className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  size="lg"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Github className="h-5 w-5" />
+                    Войти через GitHub
+                  </span>
+                </Button>
+              </motion.div>
+
+              {/* Яндекс OAuth кнопка (временно скрыта) */}
+              {false && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Button
+                  onClick={() => {
+                    window.location.href = "/api/yandex/login"
+                  }}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  size="lg"
                 >
                   <span className="flex items-center justify-center gap-2">
                     <Mail className="h-5 w-5" />
@@ -354,6 +382,7 @@ export default function LoginPage() {
                   </span>
                 </Button>
               </motion.div>
+              )}
             </CardContent>
           </Card>
 

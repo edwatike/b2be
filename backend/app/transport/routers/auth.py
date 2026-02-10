@@ -176,6 +176,123 @@ async def auth_status(
         }
 
 
+@router.post("/github-oauth", response_model=Token)
+@limiter.limit(AUTH_LIMIT)
+async def github_oauth_login(request: Request, payload: dict, db: AsyncSession = Depends(get_db)):
+    """
+    Регистрация или авторизация пользователя через GitHub OAuth
+    """
+    import httpx
+    
+    github_access_token = payload.get("access_token")
+    if not github_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="GitHub access token is required"
+        )
+    
+    # Получаем информацию о пользователе из GitHub
+    async with httpx.AsyncClient() as client:
+        user_response = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"token {github_access_token}"}
+        )
+        if user_response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to fetch GitHub user data"
+            )
+        
+        github_user = user_response.json()
+        github_id = github_user.get("id")
+        username = github_user.get("login")
+        email = github_user.get("email")
+        
+        # Если email не публичный, получаем через emails API
+        if not email:
+            emails_response = await client.get(
+                "https://api.github.com/user/emails",
+                headers={"Authorization": f"token {github_access_token}"}
+            )
+            if emails_response.status_code == 200:
+                emails = emails_response.json()
+                primary_email = next((e for e in emails if e.get("primary")), emails[0])
+                email = primary_email.get("email")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for registration"
+            )
+    
+    email = _normalize_email(email)
+    
+    # Проверяем существующего пользователя по email
+    result = await db.execute(
+        ("SELECT id, username, email, role, is_active, cabinet_access_enabled, auth_method "
+         "FROM users WHERE email = :email"),
+        {"email": email},
+    )
+    user_row = result.fetchone()
+    
+    if user_row is None:
+        # Создаем нового пользователя
+        role = "moderator" if is_master_moderator_email(email) else "user"
+        cabinet_access_enabled = is_master_moderator_email(email)
+        
+        await db.execute(
+            ("INSERT INTO users (username, email, role, is_active, cabinet_access_enabled, auth_method, github_id) "
+             "VALUES (:username, :email, :role, :is_active, :cabinet_access_enabled, :auth_method, :github_id)"),
+            {
+                "username": username,
+                "email": email,
+                "role": role,
+                "is_active": True,
+                "cabinet_access_enabled": cabinet_access_enabled,
+                "auth_method": "github_oauth",
+                "github_id": github_id,
+            },
+        )
+        await db.commit()
+        
+        user_data = {
+            "id": github_id,
+            "username": username,
+            "email": email,
+            "role": role,
+            "auth_method": "github_oauth"
+        }
+    else:
+        # Обновляем существующего пользователя
+        await db.execute(
+            ("UPDATE users SET github_id = :github_id, auth_method = :auth_method "
+             "WHERE email = :email"),
+            {
+                "github_id": github_id,
+                "auth_method": "github_oauth",
+                "email": email,
+            },
+        )
+        await db.commit()
+        
+        user_data = {
+            "id": user_row[0],
+            "username": user_row[1],
+            "email": user_row[2],
+            "role": user_row[3],
+            "auth_method": "github_oauth"
+        }
+    
+    # Создаем JWT токен
+    access_token = create_access_token(data={"sub": user_data["email"]})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user_data
+    }
+
+
 @router.post("/yandex-oauth", response_model=Token)
 @limiter.limit(AUTH_LIMIT)
 async def yandex_oauth_login(request: Request, payload: dict, db: AsyncSession = Depends(get_db)):
